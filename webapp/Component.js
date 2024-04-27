@@ -40,7 +40,21 @@ sap.ui.define([
                     // if (sessionStorage.getItem("unitCode")) {
                     //     this.addSubHead(sessionStorage.getItem("unitCode").split(","), sessionStorage.getItem("unitCodeText").split(","));
                     // } else {
-                    this.getData();
+
+                    const modulePath = jQuery.sap.getModulePath("sp/fiori/unitcodeshellplugin");
+                    $.ajax({
+                        url: modulePath + "/user-api/attributes",
+                        type: "GET",
+                        success: res => {
+                            const attributes = res;
+                            this.getModel().setHeaders({
+                                "loginId": attributes.login_name[0],
+                                "loginType": attributes.type[0].substring(0, 1).toUpperCase()
+                            });
+                            this.userGroups = attributes.Groups;
+                            this.getData();
+                        }
+                    });
                     // }
                 }).catch(err => {
                     // metadata error
@@ -56,7 +70,6 @@ sap.ui.define([
                 sap.ushell.Container.attachLogoutEvent(() => sessionStorage.clear());
             },
 
-
             getData() {
                 this.getModel().read("/UnitCodes", {
                     success: data => {
@@ -68,6 +81,13 @@ sap.ui.define([
                             }
                             sessionStorage.setItem("unitCode", selected);
                             sessionStorage.setItem("CodeDetails", JSON.stringify(this.data));
+                        }
+
+                        if (this.userGroups.includes("CI_LEGACY_MASTER")) {
+                            this.suppData = [];
+                            this.getSupplierList();
+                        } else {
+                            this.busyDialog.close();
                         }
 
                         // this.dialog = sap.ui.xmlfragment("sp.fiori.unitcodeshellplugin.fragment.Dialog", this);
@@ -92,9 +112,28 @@ sap.ui.define([
                         //sessionStorage.setItem("unitCodeText", uCodeText);
 
                         //}
-                        this.busyDialog.close();
                     },
                     error: () => this.busyDialog.close()
+                });
+            },
+
+            getSupplierList: function () {
+                return new Promise((resolve, reject) => {
+                    this.getModel().callFunction("/GetSupplierList", {
+                        method: "GET",
+                        success: (oData) => {
+                            this.suppData = oData.results;
+                            if (!sessionStorage.getItem("AddressCode")) {
+                                this.openDialog();
+                            }
+                            this.busyDialog.close();
+                            resolve();
+                        },
+                        error: () => {
+                            this.busyDialog.close();
+                            reject(new Error("Failed to fetch supplier data."));
+                        }
+                    });
                 });
             },
 
@@ -102,6 +141,14 @@ sap.ui.define([
                 this.dialog = sap.ui.xmlfragment("sp.fiori.unitcodeshellplugin.fragment.Dialog", this);
                 this.dialog.setModel(new JSONModel(this.data), "UnitCode");
                 this.dialog.open();
+                if (this.userGroups.includes("CI_LEGACY_MASTER")) {
+                    sap.ui.getCore().byId("suppList").setVisible(true);
+                    this.dialog.setModel(new JSONModel([]), "SupplierModel");
+                    this.dialog.getModel("SupplierModel").setSizeLimit(this.suppData.length);
+                    this.dialog.getModel("SupplierModel").setData(this.suppData);
+                } else {
+                    sap.ui.getCore().byId("suppList").setVisible(false);
+                }
                 if (sessionStorage.getItem("unitCode")) {
                     sap.ui.getCore().byId("unitCode").setSelectedKeys(sessionStorage.getItem("unitCode").split(","));
                     //sap.ui.getCore().byId("companyCodeText").setVisible(true).setText(sessionStorage.getItem("unitCodeText"));
@@ -112,24 +159,51 @@ sap.ui.define([
                     }
                     sap.ui.getCore().byId("unitCode").setSelectedKeys(selected);
                 }
+
+                if (sessionStorage.getItem("AddressCode")) {
+                    sap.ui.getCore().byId("suppList").setSelectedKey(sessionStorage.getItem("AddressCode"));
+                }
             },
 
             onApplyPress: function (evt) {
-                var unitCode = sap.ui.getCore().byId("unitCode");
-                if (unitCode.getSelectedKeys() !== "") {
+                let validate = [];
+
+                const unitCode = sap.ui.getCore().byId("unitCode");
+                if (unitCode.getSelectedKeys().length > 0) {
+                    validate.push(true);
                     unitCode.setValueState("None");
+                    sessionStorage.setItem("unitCode", unitCode.getSelectedKeys());
+                    sessionStorage.setItem("CodeDetails", JSON.stringify(this.data));
+
                     // var uCodeText = [];
                     // for (var i = 0; i < unitCode.getSelectedItems().length; i++) {
                     //     uCodeText.push(unitCode.getSelectedItems()[i].getProperty("additionalText"));
                     // }
-                    sessionStorage.setItem("unitCode", unitCode.getSelectedKeys());
                     //sessionStorage.setItem("unitCode", 'P05');
                     // sessionStorage.setItem("unitCodeText", uCodeText);
-                    sessionStorage.setItem("CodeDetails", JSON.stringify(this.data));
                     //this.addSubHead(uCode, uCodeText);
-                    evt.getSource().getParent().destroy();
                 } else {
+                    validate.push(false);
                     unitCode.setValueState("Error");
+                }
+
+                if (this.userGroups.includes("CI_LEGACY_MASTER")) {
+                    const suppList = sap.ui.getCore().byId("suppList");
+                    if (suppList.getSelectedKey() !== "") {
+                        validate.push(true);
+                        suppList.setValueState("None");
+                        sessionStorage.setItem("AddressCodePO", suppList.getSelectedKey());
+                        sessionStorage.setItem("AddressCodeASNSA", suppList.getSelectedKey());
+                        sessionStorage.setItem("AddressCode", suppList.getSelectedKey());
+                        sessionStorage.setItem("AddressCodeSA", suppList.getSelectedKey());
+                    } else {
+                        validate.push(false);
+                        suppList.setValueState("Error");
+                    }
+                }
+
+                if (validate.every(item => item === true)) {
+                    evt.getSource().getParent().destroy();
                 }
             },
 
