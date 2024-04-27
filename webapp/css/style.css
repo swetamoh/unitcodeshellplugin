@@ -1,0 +1,19 @@
+.sapMGTSubHdrTxt>.sapMText, .sapMGTSubHdrTxt {
+    overflow: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "72","72full",Arial,Helvetica,sans-serif;
+    font-size: .875rem;
+    font-weight: normal;
+    color: #556b82;
+    text-wrap: wrap !important;
+}
+.sapMGTHdrTxt>.sapMText, .sapMGTHdrTxt {
+    overflow: hidden;
+    white-space: pre-line;;
+    font-family: "72","72full",Arial,Helvetica,sans-serif;
+    font-size: .75rem;
+    font-weight: normal;
+    color: #0032a5;
+    display: inline;
+}
