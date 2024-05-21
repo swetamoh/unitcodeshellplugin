@@ -196,6 +196,7 @@ sap.ui.define([
                         sessionStorage.setItem("AddressCodeASNSA", suppList.getSelectedKey());
                         sessionStorage.setItem("AddressCode", suppList.getSelectedKey());
                         sessionStorage.setItem("AddressCodeSA", suppList.getSelectedKey());
+                        sessionStorage.setItem("AddressCodeINVASN", suppList.getSelectedKey());
                     } else {
                         validate.push(false);
                         suppList.setValueState("Error");
